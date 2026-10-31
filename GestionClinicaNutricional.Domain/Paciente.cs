@@ -31,7 +31,7 @@ namespace GestionClinicaNutricional.Domain
                 Apellido = apellido
             };
 
-            paciente.AddDomainEvent(new PacienteCreated(paciente.Id, ci, nombre, apellido));
+            paciente.AddDomainEvent(new PacienteCreated(paciente.Id, ci, nombre, apellido, telefono));
 
             return paciente;
         }

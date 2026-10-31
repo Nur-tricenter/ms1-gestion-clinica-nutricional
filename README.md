@@ -18,7 +18,7 @@ MS1 corre en la plataforma junto a MS2–MS5. Todo se activa por configuración,
 - **Consul / gateway:** con `ServiceRegistration__ServiceDiscoveryAddress` se registra como `clinica-nutricional` y el gateway lo publica en `/api/clinica-nutricional/v1/...`. `/health` también prueba Postgres.
 - **Compose:** `ms1.compose.yml` (API, worker y job de migración) lo incluye `nur-tricenter-local`; `docker-compose.yml` levanta MS1 solo, con su Postgres y RabbitMQ. Ambos necesitan haber compilado (`dotnet build GestionClinicaNutricionalService.sln`) o construido la imagen con `NUGET_USERNAME`/`NUGET_TOKEN` (ver `dockerfile`).
 - **NuGet:** los kernels `Nur.Tricenter.*` salen del feed de GitHub Packages de la org (`NuGet.config`); definir `NUGET_USERNAME` y `NUGET_TOKEN` (token con `read:packages`).
-- **Evento:** `PacientePublished` sale por el exchange `paciente-published` (outbox + worker) con el `PacienteId` real del paciente.
+- **Event:** the kernel contract `PatientPublished` (`Nur.Tricenter.Integration` 1.6.0: id, document, name, phone) goes out on the `paciente-published` exchange (outbox + worker). MS3 projects it locally, so it no longer calls MS1 over REST.
 - **Contrato para MS5:** `POST /api/v1/patients/contact-information` recibe un arreglo de ids de paciente y devuelve `[{ patientId, phoneNumber, fullName }]`. El teléfono es el campo opcional `telefono` de `CreatePaciente`; los ids que no existen se omiten.
 
 ## Endpoints de la API
