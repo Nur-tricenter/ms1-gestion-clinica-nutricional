@@ -1,4 +1,9 @@
 ﻿using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
 using GestionClinicaNutricional.Domain.Repositories;
@@ -9,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
 namespace IntegrationTests.Setup
@@ -17,8 +23,31 @@ namespace IntegrationTests.Setup
     {
         private readonly string _dbName = $"IntTests_Item_{Guid.NewGuid()}";
 
+        // The API requires a bearer token on every endpoint; the tests sign their own with a throwaway key.
+        private const string TestSigningKey = "integration-tests-signing-key-0123456789abcdef";
+        private const string TestIssuer = "ms1-integration-tests";
+        private const string TestAudience = "ms1-integration-tests";
+
+        protected override void ConfigureClient(HttpClient client)
+        {
+            var credentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestSigningKey)), SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+                TestIssuer, TestAudience, [new Claim("sub", "integration-tests")],
+                expires: DateTime.UtcNow.AddHours(1), signingCredentials: credentials);
+
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+            base.ConfigureClient(client);
+        }
+
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
+            builder.UseSetting("Jwt:SecretKey", TestSigningKey);
+            builder.UseSetting("Jwt:ValidIssuer", TestIssuer);
+            builder.UseSetting("Jwt:ValidAudience", TestAudience);
+            builder.UseSetting("HttpsRedirection:Enabled", "false");
+
             builder.ConfigureServices(
                 services =>
                 {
@@ -43,8 +72,9 @@ namespace IntegrationTests.Setup
                     services.RemoveAll<DbContextOptions<DatabaseContext>>();
                     services.AddSingleton(
                         new DbContextOptionsBuilder<DatabaseContext>()
-                            .UseSqlServer(
-                                "Server=localhost\\SQLEXPRESS;Database=ClinicaNutricional;MultipleActiveResultSets=True;Trusted_Connection=True;TrustServerCertificate=True")
+                            .UseNpgsql(
+                                Environment.GetEnvironmentVariable("MS1_TEST_CONNECTION")
+                                ?? "Host=localhost;Port=5433;Database=ms1_clinica_nutricional_tests;Username=dev-only;Password=dev-only-password")
                             .Options);
                 });
         }

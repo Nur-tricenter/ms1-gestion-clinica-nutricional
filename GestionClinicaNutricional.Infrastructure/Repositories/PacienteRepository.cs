@@ -25,6 +25,14 @@ namespace GestionClinicaNutricional.Infrastructure.Repositories
             return paciente;
         }
 
+        public async Task<IReadOnlyList<Paciente>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+        {
+            var wanted = ids.Distinct().ToList();
+            return await databaseContext.Paciente.AsNoTracking()
+                .Where(p => wanted.Contains(p.Id))
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task AddAsync(Paciente entity)
         {
             await databaseContext.Paciente.AddAsync(entity);

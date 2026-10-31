@@ -30,7 +30,7 @@ namespace GestionClinicaNutricional.Infrastructure
 
             services.AddDbContext<DatabaseContext>(
                 context =>
-                    context.UseSqlServer(connectionString));
+                    context.UseNpgsql(connectionString));
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IOutboxDatabase<DomainEvent>, UnitOfWork>().AddOutbox<DomainEvent>();
