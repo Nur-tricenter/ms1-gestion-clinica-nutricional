@@ -1,17 +1,84 @@
+# MS1 on its own: API + outbox worker + its own Postgres and RabbitMQ. For the full platform use
+# ms1.compose.yml through nur-tricenter-local instead.
+#
+#   export NUGET_USERNAME=<github-user> NUGET_TOKEN=<token with read:packages>
+#   docker compose up --build
+#
+# Swagger: http://localhost:3001/swagger  (every endpoint needs a bearer token signed with Jwt__SecretKey)
+x-ms1-env: &ms1-env
+  ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=ms1_clinica_nutricional;Username=ms1;Password=ms1-dev-only"
+  Jwt__SecretKey: "standalone-dev-signing-key-0123456789abcdef"
+  Jwt__ValidIssuer: "nur-tricenter-identity"
+  Jwt__ValidAudience: "nur-tricenter-clients"
+  Jwt__Lifetime: "3600"
+
 services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ms1
+      POSTGRES_PASSWORD: ms1-dev-only
+      POSTGRES_DB: ms1_clinica_nutricional
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ms1 -d ms1_clinica_nutricional"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  migrate:
+    build: &api-build
+      context: .
+      dockerfile: dockerfile
+      target: api
+      args:
+        NUGET_USERNAME: ${NUGET_USERNAME}
+      secrets: [nuget_token]
+    command: ["--migrate"]
+    environment: *ms1-env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
   gestion-clinica-api:
-    image: logfile1995/gestionclinicanutricional:latest
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
+    build: *api-build
     container_name: gestion-clinica-nutricional
     ports:
       - "3001:80"
     environment:
-      - ASPNETCORE_URLS=http://*:80.
+      <<: *ms1-env
+      HttpsRedirection__Enabled: "false"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/swagger/index.html"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  gestion-clinica-worker:
+    build:
+      context: .
+      dockerfile: dockerfile
+      target: worker
+      args:
+        NUGET_USERNAME: ${NUGET_USERNAME}
+      secrets: [nuget_token]
+    environment:
+      <<: *ms1-env
+      RabbitMqSettings__Host: rabbitmq
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+
+secrets:
+  nuget_token:
+    environment: NUGET_TOKEN

@@ -8,5 +8,6 @@ namespace GestionClinicaNutricional.Application.Paciente
         public string CI { get; init; }
         public string Nombre { get; init; }
         public string Apellido { get; init; }
+        public string? Telefono { get; init; }
     }
 }

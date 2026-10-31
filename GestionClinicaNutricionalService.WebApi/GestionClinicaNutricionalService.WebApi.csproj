@@ -12,6 +12,9 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
         <PackageReference Include="NSwag.AspNetCore" />
+        <PackageReference Include="Nur.Tricenter.Security" />
+        <PackageReference Include="Consul" />
+        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
     </ItemGroup>
 

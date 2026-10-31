@@ -3,10 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup Label="Nur-Tricenter platform kernels">
-    <PackageVersion Include="Nur.Tricenter.Access" Version="1.0.9" />
-    <PackageVersion Include="Nur.Tricenter.Integration" Version="1.0.9" />
-    <PackageVersion Include="Nur.Tricenter.Observability" Version="1.0.9" />
-    <PackageVersion Include="Nur.Tricenter.Security" Version="1.0.9" />
+    <PackageVersion Include="Nur.Tricenter.Access" Version="1.4.0" />
+    <PackageVersion Include="Nur.Tricenter.Integration" Version="1.4.0" />
+    <PackageVersion Include="Nur.Tricenter.Observability" Version="1.4.0" />
+    <PackageVersion Include="Nur.Tricenter.Security" Version="1.4.0" />
   </ItemGroup>
   <ItemGroup Label="Joseco">
     <PackageVersion Include="Joseco.DDD.Core" Version="1.0.3" />
@@ -19,7 +19,6 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.3" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.3" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
   </ItemGroup>
   <ItemGroup Label="Extensions">
@@ -34,7 +33,7 @@
   <ItemGroup Label="Hosting">
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.22" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.1" />
     <PackageVersion Include="Consul" Version="1.7.14.7" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageVersion Include="NSwag.AspNetCore" Version="14.7.1" />

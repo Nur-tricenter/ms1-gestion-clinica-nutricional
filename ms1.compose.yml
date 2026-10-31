@@ -1,0 +1,134 @@
+# =============================================================================
+#  MS1 — Gestion Clinica Nutricional, Nur-Tricenter PLATFORM variant.
+#
+#  Included by nur-tricenter-local/compose/docker-compose.yml:
+#
+#    include:
+#      - path: ../../ms1-gestion-clinica-nutricional/ms1.compose.yml
+#
+#  so this repository must be cloned as `ms1-gestion-clinica-nutricional`, a sibling of
+#  nur-tricenter-local.
+#
+#  NOT declared here, deliberately: Postgres (`db`), RabbitMQ (`rabbitmq`) and Consul (`consul`).
+#  They belong to the platform (nur-tricenter-local/compose/docker-compose.infra.yml). This file
+#  only adds MS1's own processes to the shared `nur-tricenter-net` network. The database
+#  `ms1_clinica_nutricional` must exist on that Postgres (start-stack creates the missing ones).
+#
+#  For running MS1 ALONE use the standalone docker-compose.yml in this folder.
+#
+#  Binaries are bind-mounted, not built into an image (same as every other platform service):
+#  run `dotnet build GestionClinicaNutricionalService.sln` first.
+#
+#  Values below are DEV-ONLY and match the rest of the platform's local stack.
+# =============================================================================
+
+x-ms1-database: &ms1-database
+  ConnectionStrings__DefaultConnection: "Host=nur-tricenter-postgres;Port=5432;Database=ms1_clinica_nutricional;Username=dev-only;Password=dev-only-password"
+
+x-ms1-web-host: &ms1-web-host
+  ASPNETCORE_ENVIRONMENT: Development
+  # The build's static-web-assets manifest holds the HOST's Windows paths; inside the Linux container
+  # they are not absolute and the host crashes on startup. A missing file disables it.
+  ASPNETCORE_STATICWEBASSETS: /nonexistent-staticwebassets.json
+
+services:
+  # One-shot job: applies EF Core migrations, then exits. The API and the worker wait for it to COMPLETE.
+  clinica-nutricional-migrate:
+    image: mcr.microsoft.com/dotnet/aspnet:10.0
+    container_name: nur-tricenter-clinica-nutricional-migrate
+    hostname: clinica-nutricional-migrate
+    working_dir: /app
+    command: ["dotnet", "GestionClinicaNutricionalService.WebApi.dll", "--migrate"]
+    volumes:
+      - ./GestionClinicaNutricionalService.WebApi/bin/Debug/net10.0:/app:ro
+    environment:
+      <<: [*ms1-database, *ms1-web-host]
+      # --migrate never validates a token, but the host still composes the JWT handler.
+      Jwt__SecretKey: "dev-only-signing-key-not-a-secret-0123456789"
+    networks: [nur-tricenter-net]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  clinica-nutricional-api:
+    image: mcr.microsoft.com/dotnet/aspnet:10.0
+    container_name: nur-tricenter-clinica-nutricional-api
+    hostname: clinica-nutricional-api
+    working_dir: /app
+    command: ["dotnet", "GestionClinicaNutricionalService.WebApi.dll"]
+    volumes:
+      - ./GestionClinicaNutricionalService.WebApi/bin/Debug/net10.0:/app:ro
+    environment:
+      <<: [*ms1-database, *ms1-web-host]
+      ASPNETCORE_URLS: http://+:8080
+
+      # These MUST equal identity's Jwt__* (identity.compose.yml). A mismatch is a 401 on every
+      # request, not a startup error.
+      Jwt__SecretKey: "dev-only-signing-key-not-a-secret-0123456789"
+      Jwt__ValidIssuer: "nur-tricenter-identity"
+      Jwt__ValidAudience: "nur-tricenter-clients"
+      Jwt__Lifetime: "3600"
+
+      # Consul self-registration. ServiceName is the gateway's public segment:
+      # http://localhost:15005/api/clinica-nutricional/v1/...
+      ServiceRegistration__ServiceDiscoveryAddress: "http://nur-tricenter-consul:8500"
+      ServiceRegistration__ServiceName: "clinica-nutricional"
+      ServiceRegistration__Host: "clinica-nutricional-api"
+      ServiceRegistration__Port: "8080"
+
+      HttpsRedirection__Enabled: "false"
+      OpenApi__Enabled: "false"
+    networks: [nur-tricenter-net]
+    depends_on:
+      db:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      clinica-nutricional-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # The aspnet runtime image has no curl; a bash TCP probe is the platform convention.
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # Outbox relay: publishes PacientePublished to RabbitMQ. Serves no HTTP, so it is not registered in Consul.
+  clinica-nutricional-workerservice:
+    image: mcr.microsoft.com/dotnet/aspnet:10.0
+    container_name: nur-tricenter-clinica-nutricional-workerservice
+    hostname: clinica-nutricional-workerservice
+    working_dir: /app
+    command: ["dotnet", "GestionClinicaNutricional.WorkerService.dll"]
+    volumes:
+      - ./GestionClinicaNutricional.WorkerService/bin/Debug/net10.0:/app:ro
+    environment:
+      <<: *ms1-database
+      DOTNET_ENVIRONMENT: Development
+      RabbitMqSettings__Host: "nur-tricenter-rabbitmq"
+      RabbitMqSettings__Username: "guest"
+      RabbitMqSettings__Password: "guest"
+      RabbitMqSettings__VirtualHost: "/"
+    networks: [nur-tricenter-net]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      clinica-nutricional-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # No pgrep in the image: look for the worker's assembly in any process's cmdline.
+      test: ["CMD-SHELL", "grep -qs 'GestionClinicaNutricional.WorkerService' /proc/*/cmdline || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+networks:
+  nur-tricenter-net:
+    external: true

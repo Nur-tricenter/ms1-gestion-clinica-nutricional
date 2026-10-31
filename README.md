@@ -9,6 +9,18 @@ Diagrama actualizado:
     - Un `WorkerService` actúa como procesador de fondo: monitorea la tabla de Outbox, recupera los mensajes no procesados y los publica en el exchange de RabbitMQ, asegurando la consistencia eventual.
 - **CPM (Central Package Management)**: Gestión de versiones de NuGet centralizada en `Directory.Packages.props`.
 
+## Plataforma Nur-Tricenter
+
+MS1 corre en la plataforma junto a MS2–MS5. Todo se activa por configuración, igual que en los demás servicios.
+
+- **Base de datos:** PostgreSQL (`ConnectionStrings:DefaultConnection`, por defecto el Postgres de `nur-tricenter-local` en `localhost:5433`, BD `ms1_clinica_nutricional`). El esquema se aplica con el job `dotnet GestionClinicaNutricionalService.WebApi.dll --migrate`.
+- **Autenticación:** toda ruta exige un JWT de `nur-tricenter-identity` (`Jwt__SecretKey`, `Jwt__ValidIssuer`, `Jwt__ValidAudience` iguales a los de identity). `/health` es anónimo. Todavía no hay scopes de MS1 en `Nur.Tricenter.Access`: se exige "autenticado", no un scope concreto.
+- **Consul / gateway:** con `ServiceRegistration__ServiceDiscoveryAddress` se registra como `clinica-nutricional` y el gateway lo publica en `/api/clinica-nutricional/v1/...`. `/health` también prueba Postgres.
+- **Compose:** `ms1.compose.yml` (API, worker y job de migración) lo incluye `nur-tricenter-local`; `docker-compose.yml` levanta MS1 solo, con su Postgres y RabbitMQ. Ambos necesitan haber compilado (`dotnet build GestionClinicaNutricionalService.sln`) o construido la imagen con `NUGET_USERNAME`/`NUGET_TOKEN` (ver `dockerfile`).
+- **NuGet:** los kernels `Nur.Tricenter.*` salen del feed de GitHub Packages de la org (`NuGet.config`); definir `NUGET_USERNAME` y `NUGET_TOKEN` (token con `read:packages`).
+- **Evento:** `PacientePublished` sale por el exchange `paciente-published` (outbox + worker) con el `PacienteId` real del paciente.
+- **Contrato para MS5:** `POST /api/v1/patients/contact-information` recibe un arreglo de ids de paciente y devuelve `[{ patientId, phoneNumber, fullName }]`. El teléfono es el campo opcional `telefono` de `CreatePaciente`; los ids que no existen se omiten.
+
 ## Endpoints de la API
 ...
 ...
@@ -80,7 +92,7 @@ El proyecto `IntegrationTests` contiene tests de integración (xUnit + `Microsof
 
 #### Ejecutar los tests de integración
 
-Requieren una instancia local de SQL Server Express (`localhost\SQLEXPRESS`), hoy la misma que usa el entorno de desarrollo (`Database=ClinicaNutricional`).
+Requieren un PostgreSQL local. Por defecto usan `Host=localhost;Port=5433;Database=ms1_clinica_nutricional_tests` (el Postgres de `nur-tricenter-local`); con la variable `MS1_TEST_CONNECTION` se apunta a otro. La base debe existir: la factory aplica las migraciones al arrancar. La factory firma su propio token JWT, porque la API exige uno en todos los endpoints.
 
 ```bash
 dotnet test IntegrationTests/IntegrationTests.csproj
@@ -101,7 +113,7 @@ dotnet test IntegrationTests/IntegrationTests.csproj
 #### Deuda técnica
 
 - `IntegrationTests.Setup.WebApplicationFactory` tiene el mismo nombre que `Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory`: conviene renombrarlo (ej. `IntegrationTestFactory`).
-- La factory apunta a la misma BD que desarrollo (`ClinicaNutricional`) y no limpia nada: el campo `_dbName` ya existe pero no se usa, y `DisposeAsync` es un no-op. Debería usar una base única por corrida y dropearla (o limpiar tablas) al terminar.
+- La factory no limpia nada: el campo `_dbName` ya existe pero no se usa, y `DisposeAsync` es un no-op. Debería usar una base única por corrida y dropearla (o limpiar tablas) al terminar.
 - El CI (`.github/workflows/tests.yml`) solo corre `Tests/`; `IntegrationTests` no está en el pipeline.
 
 ### Estado actual de la cobertura
