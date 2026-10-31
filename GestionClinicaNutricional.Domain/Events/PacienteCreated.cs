@@ -8,6 +8,7 @@ namespace GestionClinicaNutricional.Domain.Events
         public string CI { get; }
         public string Nombre { get; }
         public string Apellido { get; }
+        public string? Telefono { get; }
 
         /// <remarks>
         /// This is the ONLY constructor on purpose. The outbox persists this event through a
@@ -16,16 +17,18 @@ namespace GestionClinicaNutricional.Domain.Events
         /// payload property above is get-only, that constructor produced an event whose payload was
         /// never written — <c>PacienteId</c> came back <c>Guid.Empty</c>, with no error raised. With a single fully parameterized constructor
         /// Newtonsoft matches the JSON members to the parameters by name and rebuilds the event
-        /// correctly. Do NOT add a parameterless constructor back: it reintroduces the silent
+        /// correctly. <c>telefono</c> is optional so outbox rows written before it existed still
+        /// deserialize (the missing member becomes null). Do NOT add a parameterless constructor back: it reintroduces the silent
         /// truncation.
         /// </remarks>
-        public PacienteCreated(Guid pacienteId, string ci, string nombre, string apellido)
+        public PacienteCreated(Guid pacienteId, string ci, string nombre, string apellido, string? telefono = null)
         {
             OccuredOn = DateTime.UtcNow;
             PacienteId = pacienteId;
             CI = ci;
             Nombre = nombre;
             Apellido = apellido;
+            Telefono = telefono;
         }
     }
 }

@@ -3,14 +3,14 @@ using Joseco.DDD.Core.Abstractions;
 using Joseco.Outbox.Contracts.Model;
 using MediatR;
 using GestionClinicaNutricional.Domain.Events;
-using GestionClinicaNutricional.Application.Contracts;
+using Nur.Tricenter.Integration.Messages.Clinic;
 using Microsoft.Extensions.Logging;
 
 namespace GestionClinicaNutricional.Application.UseCase.DomainEventHandler
 {
     /// <summary>
     /// Translates the outbox message that carries <see cref="PacienteCreated"/> into the
-    /// external contract and publishes it to RabbitMQ.
+    /// kernel <see cref="PatientPublished"/> contract and publishes it to RabbitMQ.
     /// </summary>
     public class PublishIntegrationEventWhenPacienteCreated
         : INotificationHandler<OutboxMessage<PacienteCreated>>
@@ -33,12 +33,13 @@ namespace GestionClinicaNutricional.Application.UseCase.DomainEventHandler
         {
             var pacienteCreated = notification.Content;
 
-            var message = new PacientePublished(notification.CorrelationId, Source)
+            var message = new PatientPublished(notification.CorrelationId, Source)
             {
-                PacienteId = pacienteCreated.PacienteId,
-                CI = pacienteCreated.CI,
-                Nombre = pacienteCreated.Nombre,
-                Apellido = pacienteCreated.Apellido
+                PatientId = pacienteCreated.PacienteId,
+                DocumentNumber = pacienteCreated.CI,
+                FirstName = pacienteCreated.Nombre,
+                LastName = pacienteCreated.Apellido,
+                Phone = pacienteCreated.Telefono
             };
 
             _logger.LogInformation(
