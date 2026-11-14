@@ -24,8 +24,10 @@ coveragereport/
 # Rider
 .idea/
 
-# VS Code
-.vscode/
+# VS Code (share only editor/lint config)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # Logs
 *.log

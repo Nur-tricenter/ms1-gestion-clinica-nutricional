@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Run IDE0xxx style rules from .editorconfig during dotnet build -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+  </PropertyGroup>
+</Project>
